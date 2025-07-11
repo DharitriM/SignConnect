@@ -1,6 +1,29 @@
-import type { NextRequest } from "next/server"
+import { NextResponse } from "next/server"
 
-// This will be handled by the socket.io server
-export async function GET(req: NextRequest) {
-  return new Response("Socket.io endpoint", { status: 200 })
+// This endpoint helps with socket.io connection
+export async function GET() {
+  return NextResponse.json({
+    message: "Socket.io endpoint active",
+    path: "/api/socket",
+    transports: ["polling", "websocket"],
+  })
+}
+
+export async function POST() {
+  return NextResponse.json({
+    message: "Socket.io endpoint active",
+    path: "/api/socket",
+    transports: ["polling", "websocket"],
+  })
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  })
 }

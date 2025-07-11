@@ -28,7 +28,7 @@ export function WebRTCManager({
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const peerConnection = useRef<RTCPeerConnection | null>(null)
   const [isInitiator, setIsInitiator] = useState(false)
-  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new")
+  const [socketConnected, setSocketConnected] = useState(false)
 
   useEffect(() => {
     initializeWebRTC()
@@ -54,28 +54,11 @@ export function WebRTCManager({
   }, [isVideoOn, localStream])
 
   const initializeWebRTC = async () => {
+    debugger
     try {
-      // Initialize Socket.io with better error handling
-      const socketUrl = process.env.NODE_ENV === "production" ? "" : "http://localhost:3000"
-      const newSocket = io(socketUrl, {
-        path: "/api/socket",
-        transports: ["websocket", "polling"],
-        timeout: 20000,
-        forceNew: true,
-      })
+      console.log("Initializing WebRTC...")
 
-      setSocket(newSocket)
-
-      // Handle socket connection events
-      newSocket.on("connect", () => {
-        console.log("Socket connected:", newSocket.id)
-      })
-
-      newSocket.on("connect_error", (error) => {
-        console.error("Socket connection error:", error)
-      })
-
-      // Get user media with better constraints
+      // Get user media first
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -89,64 +72,93 @@ export function WebRTCManager({
         },
       })
 
+      console.log("Got user media")
       setLocalStream(stream)
 
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream
       }
 
-      // Initialize peer connection with STUN/TURN servers
+      // Initialize Socket.io with better configuration
+      const socketUrl = window.location.origin
+      console.log("Connecting to socket at:", socketUrl)
+
+      const newSocket = io(socketUrl, {
+        path: "/api/socket",
+        transports: ["polling", "websocket"], // Try polling first, then websocket
+        upgrade: true,
+        rememberUpgrade: true,
+        timeout: 20000,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        maxReconnectionAttempts: 10,
+        forceNew: false,
+      })
+
+      setSocket(newSocket)
+
+      // Socket event handlers
+      newSocket.on("connect", () => {
+        console.log("Socket connected successfully:", newSocket.id)
+        setSocketConnected(true)
+        // Join room after successful connection
+        setTimeout(() => {
+          console.log("Joining room:", roomId)
+          newSocket.emit("join-room", roomId)
+        }, 100)
+      })
+
+      newSocket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error)
+        setSocketConnected(false)
+      })
+
+      newSocket.on("disconnect", (reason) => {
+        console.log("Socket disconnected:", reason)
+        setSocketConnected(false)
+        onConnectionChange(false)
+      })
+
+      newSocket.on("reconnect", (attemptNumber) => {
+        console.log("Socket reconnected after", attemptNumber, "attempts")
+        setSocketConnected(true)
+        newSocket.emit("join-room", roomId)
+      })
+
+      // Initialize peer connection
       const pc = new RTCPeerConnection({
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
           { urls: "stun:stun2.l.google.com:19302" },
-          { urls: "stun:stun3.l.google.com:19302" },
         ],
-        iceCandidatePoolSize: 10,
       })
 
       peerConnection.current = pc
 
-      // Monitor connection state
+      // Add event listeners
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState
-        setConnectionState(state)
-        console.log("Connection state:", state)
-
-        if (state === "connected") {
-          onConnectionChange(true)
-        } else if (state === "disconnected" || state === "failed") {
-          onConnectionChange(false)
-        }
+        console.log("Peer connection state:", state)
+        onConnectionChange(state === "connected")
       }
 
-      // Handle ICE connection state
       pc.oniceconnectionstatechange = () => {
         console.log("ICE connection state:", pc.iceConnectionState)
-        if (pc.iceConnectionState === "failed") {
-          // Restart ICE
-          pc.restartIce()
-        }
       }
 
-      // Add local stream to peer connection
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream)
-      })
-
-      // Handle remote stream
       pc.ontrack = (event) => {
-        console.log("Received remote track:", event.track.kind)
+        console.log("Received remote track")
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0]
           onConnectionChange(true)
         }
       }
 
-      // Handle ICE candidates
       pc.onicecandidate = (event) => {
-        if (event.candidate) {
+        if (event.candidate && socketConnected) {
           console.log("Sending ICE candidate")
           newSocket.emit("ice-candidate", {
             roomId,
@@ -155,26 +167,32 @@ export function WebRTCManager({
         }
       }
 
-      // Socket event handlers
+      // Add local stream to peer connection
+      stream.getTracks().forEach((track) => {
+        console.log("Adding track to peer connection:", track.kind)
+        pc.addTrack(track, stream)
+      })
+
+      // Room and signaling event handlers
       newSocket.on("room-joined", (data) => {
-        console.log("Joined room:", data)
-        const initiator = data.isInitiator
-        setIsInitiator(initiator)
+        console.log("Room joined successfully:", data)
+        setIsInitiator(data.isInitiator)
         onParticipantsChange(
           data.participants.filter((p: string) => p !== newSocket.id),
-          initiator,
+          data.isInitiator,
         )
       })
 
       newSocket.on("user-joined", async (data) => {
-        console.log("User joined:", data)
+        console.log("User joined room, participants:", data.participants)
         onParticipantsChange(
           data.participants.filter((p: string) => p !== newSocket.id),
           isInitiator,
         )
 
         if (isInitiator) {
-          await createOffer()
+          console.log("Creating offer as initiator")
+          setTimeout(() => createOffer(), 1000)
         }
       })
 
@@ -194,7 +212,7 @@ export function WebRTCManager({
       })
 
       newSocket.on("user-left", (data) => {
-        console.log("User left:", data)
+        console.log("User left room")
         onParticipantsChange(
           data.participants.filter((p: string) => p !== newSocket.id),
           isInitiator,
@@ -204,9 +222,6 @@ export function WebRTCManager({
           remoteVideoRef.current.srcObject = null
         }
       })
-
-      // Join room
-      newSocket.emit("join-room", roomId)
     } catch (error) {
       console.error("Error initializing WebRTC:", error)
       onConnectionChange(false)
@@ -214,7 +229,10 @@ export function WebRTCManager({
   }
 
   const createOffer = async () => {
-    if (!peerConnection.current || !socket) return
+    if (!peerConnection.current || !socket || !socketConnected) {
+      console.log("Cannot create offer - peer connection or socket not ready")
+      return
+    }
 
     try {
       console.log("Creating offer...")
@@ -222,53 +240,58 @@ export function WebRTCManager({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
       })
-
       await peerConnection.current.setLocalDescription(offer)
 
-      socket.emit("offer", {
-        roomId,
-        offer,
-      })
+      socket.emit("offer", { roomId, offer })
+      console.log("Offer sent")
     } catch (error) {
       console.error("Error creating offer:", error)
     }
   }
 
   const handleOffer = async (offer: RTCSessionDescriptionInit) => {
-    if (!peerConnection.current || !socket) return
+    if (!peerConnection.current || !socket || !socketConnected) {
+      console.log("Cannot handle offer - peer connection or socket not ready")
+      return
+    }
 
     try {
       console.log("Handling offer...")
       await peerConnection.current.setRemoteDescription(offer)
-
       const answer = await peerConnection.current.createAnswer()
       await peerConnection.current.setLocalDescription(answer)
 
-      socket.emit("answer", {
-        roomId,
-        answer,
-      })
+      socket.emit("answer", { roomId, answer })
+      console.log("Answer sent")
     } catch (error) {
       console.error("Error handling offer:", error)
     }
   }
 
   const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
-    if (!peerConnection.current) return
+    if (!peerConnection.current) {
+      console.log("Cannot handle answer - peer connection not ready")
+      return
+    }
 
     try {
       console.log("Handling answer...")
       await peerConnection.current.setRemoteDescription(answer)
+      console.log("Answer handled successfully")
     } catch (error) {
       console.error("Error handling answer:", error)
     }
   }
 
   const handleIceCandidate = async (candidate: RTCIceCandidateInit) => {
-    if (!peerConnection.current) return
+    if (!peerConnection.current) {
+      console.log("Cannot handle ICE candidate - peer connection not ready")
+      return
+    }
 
     try {
       await peerConnection.current.addIceCandidate(candidate)
+      console.log("ICE candidate added successfully")
     } catch (error) {
       console.error("Error handling ICE candidate:", error)
     }
@@ -295,6 +318,7 @@ export function WebRTCManager({
     }
 
     setLocalStream(null)
+    setSocketConnected(false)
     onConnectionChange(false)
   }
 

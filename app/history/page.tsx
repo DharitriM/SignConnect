@@ -96,7 +96,7 @@ export default function CallHistoryPage() {
           <CardContent className="p-8">
             <Users className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h2 className="text-2xl font-semibold mb-2">Sign In Required</h2>
-            <p className="text-gray-600 mb-6">You need to sign in to view your call history</p>
+            <p className="text-gray-400 mb-6">You need to sign in to view your call history</p>
             <div className="space-y-3">
               <Link href="/login">
                 <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-500">Sign In</Button>
@@ -118,7 +118,7 @@ export default function CallHistoryPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your call history...</p>
+          <p className="text-gray-400">Loading your call history...</p>
         </div>
       </div>
     )
@@ -129,15 +129,15 @@ export default function CallHistoryPage() {
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Call History</h1>
-            <p className="text-gray-600">Your recent video calls with sign language interpretation</p>
+            <h1 className="text-3xl font-bold text-ring mb-2">Call History</h1>
+            <p className="text-gray-400">Your recent video calls with sign language interpretation</p>
           </div>
 
           {callHistory.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <Phone className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Call History Yet</h3>
+                <h3 className="text-xl font-semibold text-gray-400 mb-2">No Call History Yet</h3>
                 <p className="text-gray-500 mb-6">Start your first call to see your history here</p>
                 <Link href="/">
                   <Button className="bg-gradient-to-r from-blue-500 to-purple-500">

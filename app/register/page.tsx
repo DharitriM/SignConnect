@@ -83,7 +83,7 @@ export default function RegisterPage() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-            <CardDescription className="text-gray-600">Join SignConnect and start communicating</CardDescription>
+            <CardDescription className="text-gray-400">Join SignConnect and start communicating</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -172,7 +172,7 @@ export default function RegisterPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-400">
               Already have an account?{" "}
               <Link href="/login" className="text-blue-600 hover:underline font-medium">
                 Sign in

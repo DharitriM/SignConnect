@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const token = request.cookies.get("token")?.value
+    console.log({request, token})
 
     if (!token) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
@@ -44,9 +45,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { roomId, type, startTime, endTime, duration, participants } = await request.json()
+    console.log({roomId, type, startTime, endTime, duration, participants})
 
     const { db } = await connectToDatabase()
     const callHistory = db.collection("call_history")
+
+    console.log({callHistory, decoded})
 
     const result = await callHistory.insertOne({
       userId: new ObjectId(decoded.userId),

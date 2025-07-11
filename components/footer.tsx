@@ -113,7 +113,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-muted-foreground text-sm">© 2024 SignConnect. All rights reserved.</p>
+          <p className="text-muted-foreground text-sm">© 2025 SignConnect. All rights reserved.</p>
           <p className="text-muted-foreground text-sm flex items-center mt-4 md:mt-0">
             Made with <Heart className="h-4 w-4 mx-1 text-red-500" /> for accessibility
           </p>

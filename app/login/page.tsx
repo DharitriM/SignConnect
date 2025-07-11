@@ -61,7 +61,7 @@ export default function LoginPage() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-            <CardDescription className="text-gray-600">Sign in to your SignConnect account</CardDescription>
+            <CardDescription className="text-gray-400">Sign in to your SignConnect account</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -116,7 +116,7 @@ export default function LoginPage() {
             <Link href="#" className="text-sm text-blue-600 hover:underline">
               Forgot your password?
             </Link>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-400">
               Don't have an account?{" "}
               <Link href="/register" className="text-blue-600 hover:underline font-medium">
                 Sign up
