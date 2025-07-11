@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Video, Github, Twitter, Mail, Heart } from "lucide-react"
+import { Video, Github, Mail, Heart } from "lucide-react"
 
 export function Footer() {
   return (
@@ -18,13 +18,10 @@ export function Footer() {
               Breaking communication barriers with AI-powered sign language interpretation in video calls.
             </p>
             <div className="flex space-x-4">
-              <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="https://github.com/DharitriM/SignConnect" className="text-muted-foreground hover:text-foreground transition-colors">
                 <Github className="h-5 w-5" />
               </Link>
-              <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                <Twitter className="h-5 w-5" />
-              </Link>
-              <Link href="#" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="https://mail.google.com/mail/u/0/?tab=rm&ogbl#inbox?compose=new" className="text-muted-foreground hover:text-foreground transition-colors">
                 <Mail className="h-5 w-5" />
               </Link>
             </div>
