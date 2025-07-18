@@ -1,0 +1,38 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+model User {
+  id          String             @id @default(auto()) @map("_id") @db.ObjectId
+  email       String?            @unique
+  username    String
+  createdAt   DateTime           @default(now())
+  rooms       RoomParticipant[] // explicitly joined
+
+  Room Room[]
+}
+
+model Room {
+  id          String             @id @default(auto()) @map("_id") @db.ObjectId
+  creatorId   String
+  isLocked    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  creator     User               @relation(fields: [creatorId], references: [id])
+  participants RoomParticipant[] // explicitly joined
+}
+
+model RoomParticipant {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  room      Room     @relation(fields: [roomId], references: [id])
+  roomId    String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  joinedAt  DateTime @default(now())
+}

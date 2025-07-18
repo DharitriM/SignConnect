@@ -1,147 +1,70 @@
-import { Server as SocketIOServer } from "socket.io"
-import type { Server as HTTPServer } from "http"
+// import { Server as IOServer } from "socket.io";
+// import type { Server as HTTPServer } from "http";
 
-interface Room {
-  id: string
-  participants: Set<string>
-  createdAt: Date
-}
 
-const rooms = new Map<string, Room>()
+// export function initSocket(httpServer: HTTPServer) {
+//   const io = new IOServer(httpServer, {
+//     path: "/api/socket/io",
+//     cors: { origin: "*" },
+//   });
 
-// Clean up empty rooms every 5 minutes
-setInterval(() => {
-  const now = new Date()
-  rooms.forEach((room, roomId) => {
-    if (room.participants.size === 0 && now.getTime() - room.createdAt.getTime() > 300000) {
-      rooms.delete(roomId)
-      console.log(`Cleaned up empty room: ${roomId}`)
-    }
-  })
-}, 300000)
+//   io.on("connection", (socket) => {
+//     socket.on("join-lobby", ({ roomId, user }) => {
+//       socket.join(`lobby:${roomId}`);
+//       io.to(`creator:${roomId}`).emit("pending-user", {
+//         socketId: socket.id,
+//         user,
+//       });
+//     });
 
-export function initializeSocketServer(httpServer: HTTPServer) {
-  console.log("Initializing Socket.IO server...")
+//     socket.on("creator-response", ({ socketId, allowed }) => {
+//       io.to(socketId).emit(allowed ? "lobby-approved" : "lobby-denied");
+//     });
 
-  const io = new SocketIOServer(httpServer, {
-    path: "/api/socket",
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"],
-      credentials: false,
-    },
-    allowEIO3: true,
-    transports: ["polling", "websocket"],
-    upgradeTimeout: 30000,
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    connectTimeout: 45000,
-    serveClient: false,
-  })
+//     socket.on("register-creator", ({ roomId }) => {
+//       socket.join(`creator:${roomId}`);
+//     });
+//   });
 
-  io.on("connection", (socket) => {
-    console.log(`✅ User connected: ${socket.id}`)
+//   return io;
+// }
 
-    socket.on("join-room", (roomId: string) => {
-      console.log(`📞 User ${socket.id} joining room: ${roomId}`)
+// server/socket.ts
 
-      // Leave any existing rooms first
-      socket.rooms.forEach((room) => {
-        if (room !== socket.id) {
-          socket.leave(room)
-          const existingRoom = rooms.get(room)
-          if (existingRoom) {
-            existingRoom.participants.delete(socket.id)
-            console.log(`👋 User ${socket.id} left room ${room}`)
-            socket.to(room).emit("user-left", {
-              participants: Array.from(existingRoom.participants),
-            })
-          }
-        }
-      })
 
-      // Join the new room
-      socket.join(roomId)
+import { Server } from "socket.io";
+import { Server as HTTPServer } from "http";
 
-      // Create room if it doesn't exist
-      if (!rooms.has(roomId)) {
-        rooms.set(roomId, {
-          id: roomId,
-          participants: new Set(),
-          createdAt: new Date(),
-        })
-        console.log(`🏠 Created new room: ${roomId}`)
-      }
+let io: Server | null = null;
 
-      const room = rooms.get(roomId)!
-      const isInitiator = room.participants.size === 0
+export function initSocket(server: HTTPServer) {
+  if (!io) {
+    io = new Server(server, {
+      path: "/api/socket",
+      cors: {
+        origin: "*", // or specify your frontend origin
+        methods: ["GET", "POST"],
+      },
+      transports: ["websocket"],
+    });
 
-      room.participants.add(socket.id)
+    io.on("connection", (socket) => {
+      console.log("🔌 New socket connection", socket.id);
 
-      console.log(`🎯 Room ${roomId}: ${room.participants.size} participants, initiator: ${isInitiator}`)
+      socket.on("join-room", (data) => {
+        socket.join(data.roomId);
+        socket.broadcast.to(data.roomId).emit("user-joined", data.userInfo);
+      });
 
-      // Notify the user they joined
-      socket.emit("room-joined", {
-        roomId,
-        isInitiator,
-        participants: Array.from(room.participants),
-      })
+      socket.on("send-message", (data) => {
+        io?.to(data.roomId).emit("receive-message", data.message);
+      });
 
-      // Notify others in the room
-      socket.to(roomId).emit("user-joined", {
-        participants: Array.from(room.participants),
-      })
-    })
+      socket.on("disconnect", () => {
+        console.log("🔌 Disconnected", socket.id);
+      });
+    });
+  }
 
-    socket.on("offer", (data) => {
-      console.log(`📤 Relaying offer from ${socket.id} to room ${data.roomId}`)
-      socket.to(data.roomId).emit("offer", { offer: data.offer })
-    })
-
-    socket.on("answer", (data) => {
-      console.log(`📥 Relaying answer from ${socket.id} to room ${data.roomId}`)
-      socket.to(data.roomId).emit("answer", { answer: data.answer })
-    })
-
-    socket.on("ice-candidate", (data) => {
-      console.log(`🧊 Relaying ICE candidate from ${socket.id} to room ${data.roomId}`)
-      socket.to(data.roomId).emit("ice-candidate", { candidate: data.candidate })
-    })
-
-    socket.on("disconnect", (reason) => {
-      console.log(`❌ User disconnected: ${socket.id}, reason: ${reason}`)
-
-      // Remove from all rooms
-      rooms.forEach((room, roomId) => {
-        if (room.participants.has(socket.id)) {
-          room.participants.delete(socket.id)
-          console.log(`👋 Removed ${socket.id} from room ${roomId}`)
-
-          socket.to(roomId).emit("user-left", {
-            participants: Array.from(room.participants),
-          })
-
-          // Delete empty rooms immediately
-          if (room.participants.size === 0) {
-            rooms.delete(roomId)
-            console.log(`🗑️ Deleted empty room: ${roomId}`)
-          }
-        }
-      })
-    })
-
-    socket.on("error", (error) => {
-      console.error(`🚨 Socket error for ${socket.id}:`, error)
-    })
-  })
-
-  // Log server stats every 5 minutes
-  setInterval(() => {
-    const totalRooms = rooms.size
-    const totalParticipants = Array.from(rooms.values()).reduce((sum, room) => sum + room.participants.size, 0)
-    console.log(`📊 Server stats - Active rooms: ${totalRooms}, Total participants: ${totalParticipants}`)
-  }, 300000)
-
-  console.log("✅ Socket.IO server initialized successfully")
-  return io
+  return io;
 }

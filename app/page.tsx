@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Video, Play, ArrowRight, Zap, Globe, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,24 +45,16 @@ export default function HomePage() {
     setRoomCode(code);
   };
 
+  const createRoom = () => {
+    if (roomCode.trim()) {
+      // Store as host
+      localStorage.setItem("isCreatingRoom", "true")
+      user ? router.push(`/call/${roomCode}`) : router.push(`/join/${roomCode.trim()}`)
+    }
+  }
+console.log({user})
   const joinRoom = async () => {
     if (roomCode.trim()) {
-      // Save room to history if user is logged in
-      // if (user) {
-      //   try {
-      //     await fetch("/api/call-history", {
-      //       method: "POST",
-      //       headers: { "Content-Type": "application/json" },
-      //       body: JSON.stringify({
-      //         roomId: roomCode,
-      //         type: "outgoing",
-      //         startTime: new Date(),
-      //       }),
-      //     })
-      //   } catch (error) {
-      //     console.error("Failed to save call history:", error)
-      //   }
-      // }
       router.push(`/call/${roomCode}`);
     }
   };
@@ -73,6 +65,9 @@ export default function HomePage() {
     }
   };
 
+  useEffect(() => {
+  fetch("/api/socket");
+}, []);
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
       {/* Hero Section */}
@@ -94,8 +89,8 @@ export default function HomePage() {
                   Gap
                 </h1>
                 <p className="text-xl lg:text-2xl text-blue-100 leading-relaxed">
-                  Real-time Sign Language Video Calling with AI-powered
-                  interpretation. Connect instantly, communicate naturally.
+                  Real-time video calling with AI-powered sign language interpretation. Connect instantly, communicate
+                naturally.
                 </p>
               </div>
 
@@ -191,16 +186,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Call Room Section */}
+      {/* Call Section */}
       <section className="py-20 bg-muted" id="call-section">
         <div className="container mx-auto px-4">
           <Card className="max-w-2xl mx-auto border-0 shadow-2xl">
             <CardHeader className="text-center bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-t-lg">
               <CardTitle className="text-3xl">Start or Join a Call</CardTitle>
               <CardDescription className="text-blue-100 text-lg">
-                {user
-                  ? `Welcome back, ${user.name}!`
-                  : "No phone or Gmail needed. Just share the room link!"}
+                Create a new room or join an existing one
               </CardDescription>
             </CardHeader>
             <CardContent className="p-12">
@@ -227,7 +220,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <Button
+                {/* <Button
                   onClick={joinRoom}
                   disabled={!roomCode.trim()}
                   size="lg"
@@ -235,19 +228,43 @@ export default function HomePage() {
                 >
                   <Video className="mr-2 h-5 w-5" />
                   {roomCode.trim()
-                    ? `Join Room ${roomCode}`
+                    ? `Join Room ${roomCode}` 
                     : "Enter Room Code"}
-                </Button>
+                </Button> */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Button
+                    onClick={createRoom}
+                    disabled={!roomCode.trim()}
+                    size="lg"
+                    className="py-6 text-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-full font-semibold"
+                  >
+                    <Video className="mr-2 h-5 w-5" />
+                    Create Room
+                  </Button>
+
+                  <Button
+                    onClick={joinRoom}
+                    disabled={!roomCode.trim()}
+                    size="lg"
+                    variant="outline"
+                    className="py-6 text-lg border-2 rounded-full font-semibold bg-transparent"
+                  >
+                    <Video className="mr-2 h-5 w-5" />
+                    Join Room
+                  </Button>
+                </div>
+
 
                 <div className="text-center text-sm text-gray-500 space-y-2">
                   <p>
-                    💡 <strong>Tip:</strong> Share the room code with others to
-                    join your call
+                    💡 <strong>Tip: </strong>Share the room code with others to join your call
                   </p>
-                  {/* <p>
-                    🔗 Room URL:{" "}
-                    <code className="bg-gray-100 px-2 py-1 rounded">yourdomain.com/call/{roomCode || "ROOMCODE"}</code>
-                  </p> */}
+                  <p>
+                    💡 <strong>Create:</strong> You'll be the host and can approve participants
+                  </p>
+                  <p>
+                    🔗 <strong>Join:</strong> Request to join an existing room
+                  </p>
                   {!user && (
                     <p className="text-blue-600">
                       <Button

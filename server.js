@@ -1,68 +1,69 @@
-const { createServer } = require("http")
-const { parse } = require("url")
-const next = require("next")
-const { initializeSocketServer } = require("./lib/socket-server")
+// /* eslint-disable @typescript-eslint/no-var-requires */
+// import next from "next";
+// import { createServer } from "http";
+// import { parse } from "url";
+// import { initSocket } from "./lib/socketServer";
 
-const dev = process.env.NODE_ENV !== "production"
-const hostname = "localhost"
-const port = process.env.PORT || 3000
+// const port = parseInt(process.env.PORT || "3000", 10);
+// const dev = process.env.NODE_ENV !== "production";
+// const app = next({ dev });
+// const handle = app.getRequestHandler();
 
-console.log(`🚀 Starting server in ${dev ? "development" : "production"} mode`)
+// (async () => {
+//   await app.prepare();
+//   const server = createServer((req, res) => {
+//     const parsedUrl = parse(req.url || "/", true);
+//     handle(req, res, parsedUrl);
+//   });
 
-const app = next({ dev, hostname, port })
-const handle = app.getRequestHandler()
+//   // hook Socket.IO
+//   initSocket(server);
+
+//   server.listen(port, () =>
+//     console.log(`> Ready on http://localhost:${port}`),
+//   );
+// })();
+
+
+const express = require("express");
+const next = require("next");
+const { createServer } = require("http");
+const { Server } = require("socket.io");
+
+const port = parseInt(process.env.PORT || "3000", 10);
+const dev = process.env.NODE_ENV !== "production";
+const app = next({ dev });
+const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
-  console.log("📦 Next.js app prepared")
+  const expressApp = express();
+  const server = createServer(expressApp);
 
-  const httpServer = createServer(async (req, res) => {
-    try {
-      // Add CORS headers for socket.io
-      if (req.url?.startsWith("/api/socket")) {
-        res.setHeader("Access-Control-Allow-Origin", "*")
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type")
+  const io = new Server(server, {
+    path: "/socket.io",
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"],
+    },
+  });
 
-        if (req.method === "OPTIONS") {
-          res.writeHead(200)
-          res.end()
-          return
-        }
-      }
+  io.on("connection", (socket) => {
+    console.log("✅ Socket connected:", socket.id);
 
-      const parsedUrl = parse(req.url, true)
-      await handle(req, res, parsedUrl)
-    } catch (err) {
-      console.error("❌ Error occurred handling", req.url, err)
-      res.statusCode = 500
-      res.end("internal server error")
-    }
-  })
+    socket.on("message", (msg) => {
+      console.log("📩 Received message:", msg);
+      socket.broadcast.emit("message", msg);
+    });
 
-  // Initialize Socket.io
-  const io = initializeSocketServer(httpServer)
+    socket.on("disconnect", () => {
+      console.log("❌ Socket disconnected:", socket.id);
+    });
+  });
 
-  httpServer.listen(port, (err) => {
-    if (err) throw err
-    console.log(`✅ Server ready on http://${hostname}:${port}`)
-    console.log(`🔌 Socket.io server running on path: /api/socket`)
-    console.log(`📡 WebRTC signaling server active`)
-  })
+  // 🔁 Next.js handles all unmatched routes
+  expressApp.use((req, res) => handle(req, res));
 
-  // Graceful shutdown
-  process.on("SIGTERM", () => {
-    console.log("🛑 SIGTERM received, shutting down gracefully")
-    httpServer.close(() => {
-      console.log("✅ Server closed")
-      process.exit(0)
-    })
-  })
-
-  process.on("SIGINT", () => {
-    console.log("🛑 SIGINT received, shutting down gracefully")
-    httpServer.close(() => {
-      console.log("✅ Server closed")
-      process.exit(0)
-    })
-  })
-})
+  server.listen(port, () => {
+    console.log(`🚀 Server running at http://localhost:${port}`);
+  });
+});
